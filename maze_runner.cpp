@@ -30,8 +30,6 @@ void debug_print_maze() {
     }
 }
 
-
-// Função para carregar o labirinto de um arquivo
 // Função para carregar o labirinto de um arquivo
 Position load_maze(const std::string& file_name) {
     std::ifstream arquivoE(file_name);
@@ -42,94 +40,65 @@ Position load_maze(const std::string& file_name) {
 
     // Leia a primeira linha para obter o número de linhas e colunas
     arquivoE >> num_rows >> num_cols;
-    // Redimensione a matriz 'maze' de acordo
     maze.resize(num_rows);
     for (int i = 0; i < num_rows; ++i) {
         maze[i].resize(num_cols);
     }
 
-    // Limpar o caractere de nova linha após a leitura das dimensões
     arquivoE.ignore();
 
-    // Leitura do conteúdo do labirinto, caractere por caractere
     char caractere;
     Position posicao_inicial = {-1, -1};  
     for (int i = 0; i < num_rows; ++i) {
         for (int j = 0; j < num_cols; ++j) {
             arquivoE.get(caractere);
             maze[i][j] = caractere;
-
-            // Encontre e retorne a posição inicial 'e'
             if (caractere == 'e') {
                 posicao_inicial = {i, j};  
             }
         }
-        arquivoE.ignore();  // Ignora a quebra de linha após cada linha do labirinto
+        arquivoE.ignore();  
     }
 
-    // Trate possíveis erros
     if (posicao_inicial.row == -1) {
         std::cerr << "Erro: Posição inicial 'e' não encontrada no labirinto." << std::endl;
         return {0, 0}; 
     }
 
-    // Feche o arquivo após a leitura
     arquivoE.close();
     return posicao_inicial;
 }
 
-
 // Função para imprimir o labirinto
 void print_maze() {
-    // TODO: Implemente esta função
-    // 1. Percorra a matriz 'maze' usando um loop aninhado
-    // 2. Imprima cada caractere usando std::cout
-    // 3. Adicione uma quebra de linha (std::cout << '\n') ao final de cada linha do labirinto
-    for (int i = 0; i <num_rows; i++){
+    for (int i = 0; i < num_rows; i++){
         for(int j = 0; j < num_cols; j++){
-           std:: cout << maze [i][j];
+           std::cout << maze[i][j];
         }
-        std:: cout << '\n';
+        std::cout << '\n';
     } 
 }
 
 // Função para verificar se uma posição é válida
 bool is_valid_position(int row, int col) {
-    // TODO: Implemente esta função
-    // 1. Verifique se a posição está dentro dos limites do labirinto
-    if (row >= 0 && row < num_rows && col >= 0 && col < num_cols){
-        if(maze[row][col] == 'x' || maze[row][col] == 's' ){
+    if (row >= 0 && row < num_rows && col >= 0 && col < num_cols) {
+        if (maze[row][col] == 'x' || maze[row][col] == 's') {
             return true;
         }
     }
-    //    (row >= 0 && row < num_rows && col >= 0 && col < num_cols)
-    // 2. Verifique se a posição é um caminho válido (maze[row][col] == 'x')
-    // 3. Retorne true se ambas as condições forem verdadeiras, false caso contrário
-
-    return false; // Placeholder - substitua pela lógica correta
+    return false;
 }
 
 // Função principal para navegar pelo labirinto
 bool walk(Position pos) {
-    // Verifique se a posição atual é válida
-    
-
-    // Verifique se a posição atual é a saída
     if (maze[pos.row][pos.col] == 's') {
-        
         return true; // Encontrou a saída!
     }
 
-    // Marque a posição atual como visitada
     maze[pos.row][pos.col] = '.'; 
-
-    // Chame print_maze() para mostrar o estado atual do labirinto
     print_maze();
-    
-    // Adicione um pequeno atraso para visualização
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-    
     Position direcoes[] = {
         {pos.row - 1, pos.col},  // Cima
         {pos.row + 1, pos.col},  // Baixo
@@ -137,26 +106,38 @@ bool walk(Position pos) {
         {pos.row, pos.col + 1}   // Direita
     };
 
+    std::vector<std::thread> threads;
+
     for (const Position& nova_pos : direcoes) {
         if (is_valid_position(nova_pos.row, nova_pos.col)) {
-            // Coloque a nova posição na pilha de posições válidas
-            valid_positions.push(nova_pos);
+            if (valid_positions.empty()) {
+                valid_positions.push(nova_pos);
+            } else {
+                // Crie uma nova thread para explorar o caminho adicional
+                threads.emplace_back(walk, nova_pos);
+            }
         }
     }
 
-    
     while (!valid_positions.empty()) {
-        // Pegue a próxima posição válida
         Position prox_pos = valid_positions.top();
         valid_positions.pop();
-
-       
         if (walk(prox_pos)) {
-            return true;  
+            for (auto& th : threads) {
+                if (th.joinable()) {
+                    th.join();
+                }
+            }
+            return true;
         }
     }
 
-    
+    for (auto& th : threads) {
+        if (th.joinable()) {
+            th.join();
+        }
+    }
+
     return false;
 }
 
@@ -183,6 +164,7 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
+
 
 // Nota sobre o uso de std::this_thread::sleep_for:
 // 
